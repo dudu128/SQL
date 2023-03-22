@@ -1,0 +1,21 @@
+DECLARE @a date
+DECLARE @SD varchar(10)
+DECLARE cur CURSOR LOCAL FOR
+	select distinct stock_code from stock_data order by stock_code
+open cur
+FETCH cur INTO @SD
+WHILE @@FETCH_STATUS = 0
+BEGIN
+	SET @a = '20210101'
+
+	while @a <= '20230301'
+	BEGIN
+		print(@SD)
+		exec MA @date=@a, @stock_code=@SD
+		SET @a =  (SELECT MIN([date]) FROM calendar
+					WHERE [date] > @a AND day_of_stock != -1)
+	END
+	FETCH cur INTO @SD
+END
+CLOSE cur
+DEALLOCATE cur
