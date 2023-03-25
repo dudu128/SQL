@@ -1,2 +1,2 @@
 # SQL
-personal practice for socker information
+personal practice for stock information
