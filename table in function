@@ -1,0 +1,58 @@
+USE [ncu_database]
+GO
+/****** Object:  UserDefinedFunction [dbo].[GB_rule1]    Script Date: 4/30/2023 5:00:08 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER FUNCTION [dbo].[GB_rule1]
+(
+	@company varchar(10)
+	--@interval int , --往前抓的天數
+	--@change_interval int --決定上升或下降的天數，若沒有則視為平緩趨勢
+)
+RETURNS @result_table TABLE (
+        date date
+    )
+AS
+BEGIN
+	DECLARE @MA_updown_trend TABLE(
+	company varchar(10),
+	date date,
+	yesterday_c real,
+	today_c	 real,
+	yesterday_MA real,
+	today_MA real, 
+	MA_diff INT, /* 判斷今日與昨日的MA為正或負 */
+	trend INT, 	/* 1為上漲、-1為下跌、0為盤整 */
+	counter_plus int,  /* 數前幾天共有多少今日MA>昨日MA */
+	counter_minus int  /* 數前幾天共有多少今日MA<昨日MA */
+	)
+	INSERT INTO @MA_updown_trend
+	select * from find_MA_updown(2330,8,6)
+
+	DECLARE @flag int
+	SET @flag = 0
+
+	DECLARE cur CURSOR LOCAL for
+		SELECT date, today_c, today_MA, trend FROM @MA_updown_trend order by date asc
+	open cur
+
+	DECLARE @date_temp date
+	DECLARE @c_temp real
+	DECLARE @MA_temp real
+	DECLARE @trend_temp int
+	FETCH next from cur into @date_temp, @c_temp, @MA_temp, @trend_temp
+	WHILE @@FETCH_STATUS = 0 BEGIN
+		if(@trend_temp > @flag and @c_temp > @MA_temp)
+			INSERT @result_table
+			select date from @MA_updown_trend where date = @date_temp
+		SET @flag = @trend_temp
+		FETCH next from cur into @date_temp, @c_temp, @MA_temp, @trend_temp
+	END
+
+	--INSERT @result_table
+	--select date from @MA_updown_trend
+
+	return
+END
