@@ -1,0 +1,74 @@
+import time
+import requests
+
+import pymssql
+import numpy as np
+import pandas as pd
+import mplfinance as mpf
+import matplotlib.pyplot as plt
+
+# from talib import abstract
+from datetime import datetime
+
+db_settings = {
+    "host": "127.0.0.1",
+    "user": "duncan880128",
+    "password": "dn940387",
+    "database": "ncu_database",
+    "charset": "utf8"
+}
+
+try:  
+    conn = pymssql.connect(**db_settings)
+    with conn.cursor() as cursor:
+        command = "select s.date, s.o, s.c, s.h, s.l, s.v, COALESCE(GB_rule1_5.buy_sell,NULL) AS 'buy_sell' from stock_data s LEFT JOIN GB_rule1_5(2330,8,6) ON GB_rule1_5.date = s.date  WHERE s.stock_code=2330　;"
+        cursor.execute(command)
+        result = cursor.fetchall()
+
+except Exception as ex:
+    print(ex)
+
+conn.close()
+# print(len(result))
+
+arr = []
+for r in result:
+    r = list(r)
+    r[0] = r[0]        #date
+    r[1] = float(r[1]) #open
+    r[2] = float(r[2]) #close
+    r[3] = float(r[3]) #high
+    r[4] = float(r[4]) #low
+    r[5] = float(r[5]) #volume
+    r[6] = r[6]        #buy_sell
+    arr.append(r)
+arr_df = pd.DataFrame(arr)
+
+
+
+arr_df.index = pd.to_datetime(arr_df[0])
+arr_df = arr_df.drop(columns=[0])
+# print(arr_df)
+
+arr_df.columns = ['Open', 'Close', 'High', 'Low', 'Volume', 'Buy_Sell']
+arr_df.index.name = "Date"
+
+
+mc = mpf.make_marketcolors(up='r',
+                           down='g',
+                           edge='',
+                           wick='inherit',
+                           volume='inherit')
+s = mpf.make_mpf_style(base_mpf_style='charles', marketcolors=mc)
+
+
+
+# print(arr_df)
+
+colors = ['g' if value == 1 else 'r' if value == -1 else 'none' for value in arr_df['Buy_Sell']]
+markers = ['^' if value ==1 else 'v' if value == -1 else 'none' for value in arr_df['Buy_Sell']]
+
+apdict = mpf.make_addplot(arr_df['Close'], type='scatter',markersize=100,marker=markers, color=colors)
+
+
+mpf.plot(arr_df, type='candle', style=s, addplot=apdict)
